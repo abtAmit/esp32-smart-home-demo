@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Consumption Dashboard (Demo)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/1427/1427247.png" type="image/x-icon">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1427/1427247.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f2937; margin: 0; display: flex; justify-content: center; min-height: 100vh; line-height: 1.5; padding-bottom: 80px; }
+        .container { width: 95%; max-width: 1100px; padding: 2vw; box-sizing: border-box; }
+        header { text-align: center; margin-bottom: 3rem; }
+        header h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 700; color: #0891b2; margin: 0; }
+        header p { color: #4b5563; font-size: clamp(1rem, 2vw, 1.25rem); margin-top: 0.5rem; }
+        .section-title { font-size: clamp(1.25rem, 3vw, 1.75rem); font-weight: 600; color: #374151; margin-bottom: 1.5rem; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .overall-consumption-layout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5vw; margin-bottom: 50px; }
+        .stat-card { background-color: #ffffff; padding:10px; border-radius: clamp(1rem, 1.5vw, 1.25rem); box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.1); display: flex; align-items: center; justify-content: space-between; }
+        .stat-card .stat-label { font-size: clamp(0.8rem, 1.5vw, 1rem); color: #6b7280; margin: 0; }
+        .stat-card .stat-value { font-weight: 600; color: #111827; font-size: clamp(1.75rem, 4vw, 2.5rem); margin: 0; }
+        .stat-card .stat-icon { font-size: clamp(2rem, 4vw, 2.75rem); }
+        .icon-power { color: #22c55e; } .icon-voltage { color: #facc15; } .icon-ampere { color: #ef4444; } .icon-pf { color: #8b5cf6; }
+        .room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.5vw; }
+        .room-card { background-color: #ffffff; border-radius: 50%; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; aspect-ratio: 1 / 1; text-align: center; padding: 1rem; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .room-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); }
+        .room-card h3 { font-weight: 600; font-size: clamp(0.9rem, 2.5vw, 1.1rem); margin: 0; }
+        .room-card .power-value { font-weight: 700; font-size: clamp(1.5rem, 4vw, 2rem); color: #0891b2; margin: 0.25rem 0; }
+        .room-card .ampere-value { font-size: clamp(0.8rem, 2vw, 1rem); color: #6b7280; margin: 0; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid #ddd; z-index: 100; }
+        .nav-btn { background: none; border: none; cursor: pointer; font-size: 20px; color: #666; transition: 0.3s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Live Power Dashboard</h1>
+            <p>Real-time energy monitoring for your home</p>
+        </header>
+        <section>
+            <h2 class="section-title">Overall Consumption</h2>
+            <div class="overall-consumption-layout">
+                <div class="stat-card">
+                    <div>
+                        <p class="stat-label">Total Power</p>
+                        <p id="total-power" class="stat-value">0 W</p>
+                    </div>
+                    <i class="fa-solid fa-plug-circle-bolt stat-icon icon-power"></i>
+                </div>
+                <div class="stat-card">
+                    <div>
+                        <p class="stat-label">Voltage</p>
+                        <p id="total-voltage" class="stat-value">0 V</p>
+                    </div>
+                    <i class="fa-solid fa-bolt-lightning stat-icon icon-voltage"></i>
+                </div>
+                <div class="stat-card">
+                    <div>
+                        <p class="stat-label">Total Amperage</p>
+                        <p id="total-ampere" class="stat-value">0.00 A</p>
+                    </div>
+                    <i class="fa-solid fa-wave-square stat-icon icon-ampere"></i>
+                </div>
+                <div class="stat-card">
+                    <div>
+                        <p class="stat-label">Power Factor</p>
+                        <p id="power-factor" class="stat-value">0.00</p>
+                    </div>
+                    <i class="fa-solid fa-chart-line stat-icon icon-pf"></i>
+                </div>
+            </div>
+        </section>
+        <section>
+            <h2 class="section-title">Usage by Room</h2>
+            <div id="room-grid" class="room-grid"></div>
+        </section>
+        <div class="bottom-nav">
+            <button class="nav-btn" onclick="window.location.href='dashboard.html'"> <i class="fa-solid fa-house"></i></button>
+            <button class="nav-btn" style="color: #3e67bf"> <i class="fa-solid fa-bolt"></i></button>
+            <button class="nav-btn" onclick="window.location.href='graph.html'"><i class="fa-solid fa-chart-column"></i></button>
+            <button class="nav-btn" onclick="window.location.href='settings.html'"> <i class="fa-solid fa-gear"></i></button>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const ROOMS_KEY = 'smartHomeRooms';
+            const roomGrid = document.getElementById('room-grid');
+
+            // --- 1. SET UP MOCK ROOMS IF NONE EXIST (FOR DEMO) ---
+            let storedRooms = JSON.parse(localStorage.getItem(ROOMS_KEY)) || [];
+            
+            if (storedRooms.length === 0) {
+                // Create dummy rooms so the demo doesn't look empty
+                storedRooms = [
+                    { id: 1, name: "Living Room" },
+                    { id: 2, name: "Kitchen" },
+                    { id: 3, name: "Bedroom" },
+                    { id: 4, name: "Office" }
+                ];
+                // Note: We are NOT saving this to localStorage to avoid messing up real data if this was a real app,
+                // but for a purely static demo, we just use this array.
+            }
+
+            // --- 2. RENDER ROOM UI ---
+            function initializeRoomUI() {
+                roomGrid.innerHTML = '';
+                storedRooms.forEach(room => {
+                    const roomEl = document.createElement('div');
+                    roomEl.className = 'room-card';
+                    // Added unique IDs for update targeting
+                    roomEl.innerHTML = `
+                        <h3>${room.name}</h3> 
+                        <p id="power-${room.id}" class="power-value">0W</p> 
+                        <p id="ampere-${room.id}" class="ampere-value">0.00A</p>
+                    `;
+                    roomGrid.appendChild(roomEl);
+                });
+            }
+
+            // --- 3. SIMULATE LIVE DATA (REPLACES FETCH) ---
+            function simulateLivePower() {
+                // 1. Generate Global Params
+                // Voltage fluctuates between 215V and 225V
+                const voltage = 220 + (Math.random() * 10 - 5); 
+                // Power Factor fluctuates between 0.85 and 0.99
+                const pf = 0.85 + (Math.random() * 0.14);
+
+                let totalWattage = 0;
+
+                // 2. Update Each Room
+                storedRooms.forEach(room => {
+                    // Random power usage per room (0 to 500W)
+                    const roomWatts = Math.floor(Math.random() * 500); 
+                    // Calculate Amps: Watts / Voltage
+                    const roomAmps = roomWatts / voltage;
+
+                    // Update Room UI
+                    const powerEl = document.getElementById(`power-${room.id}`);
+                    const ampereEl = document.getElementById(`ampere-${room.id}`);
+                    
+                    if (powerEl && ampereEl) {
+                        powerEl.textContent = `${roomWatts}W`;
+                        ampereEl.textContent = `${roomAmps.toFixed(2)}A`;
+                    }
+
+                    totalWattage += roomWatts;
+                });
+
+                // 3. Update Totals
+                const totalAmps = totalWattage / voltage;
+
+                document.getElementById('total-power').textContent = `${totalWattage.toFixed(0)} W`;
+                document.getElementById('total-voltage').textContent = `${voltage.toFixed(0)} V`;
+                document.getElementById('total-ampere').textContent = `${totalAmps.toFixed(2)} A`;
+                document.getElementById('power-factor').textContent = pf.toFixed(2);
+            }
+
+            // Run Initialization
+            initializeRoomUI();
+            
+            // Run Simulation immediately
+            simulateLivePower();
+            
+            // Update every 2 seconds to look "alive"
+            setInterval(simulateLivePower, 2000);
+        });
+    </script>
+</body>
+</html>

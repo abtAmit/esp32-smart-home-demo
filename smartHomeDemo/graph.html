@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Consumption Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            /* ADDED: Padding so the bottom nav doesn't cover content */
+            padding-bottom: 80px; 
+        }
+        
+        /* --- ADDED: Navigation Styles --- */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0;
+            border-top: 1px solid #e5e7eb;
+            z-index: 50; /* Ensures it stays on top */
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+        .nav-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 22px; /* Icon size */
+            color: #9ca3af; /* Gray color for inactive */
+            transition: color 0.2s;
+        }
+        .nav-btn:hover {
+            color: #3e67bf;
+        }
+        /* -------------------------------- */
+
+        /* Styles for Main Dashboard */
+        .chart-wrapper {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            margin: 0 auto;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .chart-text-link {
+            cursor: pointer;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: block;
+            padding: 1rem;
+            border-radius: 9999px;
+            transition: background-color 0.2s;
+        }
+        .chart-text-link:hover {
+            background-color: #F3F4F6;
+        }
+        .chart-label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            font-size: 0.75rem;
+            color: #4B5563;
+        }
+        .room-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr ;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            max-width: 24rem;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .room-card {
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
+            border: 1px solid #e5e7eb;
+        }
+        .room-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        /* Styles for Detail View */
+        .time-range-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #D1D5DB;
+            background-color: white;
+            color: #374151;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .time-range-btn.active {
+            background-color: #4F46E5;
+            color: white;
+            border-color: #4F46E5;
+        }
+    </style>
+</head>
+<body class="bg-white">
+
+    <div id="main-dashboard" class="p-6 w-full min-h-screen text-center">
+        <h1 class="text-2xl font-bold text-gray-800 mb-1">Today's Power</h1>
+        <p class="text-sm text-gray-500 mb-6">Live data from your smart meter.</p>
+        <div class="flex justify-center mb-6">
+            <div id="chart-wrapper" class="chart-wrapper">
+                <div class="chart-container">
+                    <canvas id="consumptionChart"></canvas>
+                    <a class="chart-text-link group" data-room="Total">
+                        <p class=" justify-start text-gray-500 text-xs">TOTAL</p>
+                        <p id="totalConsumption" class="text-3xl font-bold text-gray-800 flex items-center justify-center"></p>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div id="room-details" class="room-grid"></div>
+    </div>
+
+    <div id="detail-view" class="pt-6 pb-6 w-full min-h-screen hidden">
+        <header class="flex items-center mb-6 px-4">
+            <button id="back-btn" class="p-2 rounded-full hover:bg-gray-100 mr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <h1 id="detail-title" class="text-2xl font-bold text-gray-800"></h1>
+        </header>
+
+        <div class="bg-gray-50 p-3 rounded-lg flex justify-center space-x-2 mb-6 mx-4">
+            <button class="time-range-btn" data-range="hourly">Hourly</button>
+            <button class="time-range-btn active" data-range="daily">Daily</button>
+            <button class="time-range-btn" data-range="monthly">Monthly</button>
+            <button class="time-range-btn" data-range="yearly">Yearly</button>
+        </div>
+
+        <div class="mb-6">
+             <div class="w-full text-right text-sm text-gray-500 pr-4">kWh</div>
+             <div class="relative h-64">
+                <canvas id="detailChart"></canvas>
+            </div>
+        </div>
+
+        <div class="px-4">
+            <h2 id="list-heading" class="text-xl font-bold text-gray-800 text-left mb-4"></h2>
+            <div id="detail-list" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <button class="nav-btn" onclick="window.location.href='dashboard.html'"> <i class="fa-solid fa-house"></i></button>
+        <button class="nav-btn" onclick="window.location.href='power.html'"> <i class="fa-solid fa-bolt"></i></button>
+        <button class="nav-btn" style="color: #3e67bf"><i class="fa-solid fa-chart-column"></i></button>
+        <button class="nav-btn" onclick="window.location.href='settings.html'"> <i class="fa-solid fa-gear"></i></button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function goToPage(url) {
+            window.location.href = url;
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- DATA ---
+            const powerData = {
+                'Total': {
+                    consumption: 17.5,
+                    charts: {
+                        hourly: { labels: ['12am', '3am', '6am', '9am', '12pm', '3pm', '6pm', '9pm'], data: [1.2, 0.8, 1.5, 2.5, 3.0, 2.8, 3.2, 2.5] },
+                        daily: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], data: [16, 18, 15, 19, 17, 22, 20] },
+                        monthly: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], data: [520, 480, 550, 530, 560, 580] },
+                        yearly: { labels: ['2022', '2023', '2024'], data: [6200, 6500, 6400] }
+                    }
+                },
+                'Living Room': {
+                    consumption: 4.2, color: '#3B82F6',
+                    appliances: [
+                        { name: 'Television', consumption: 1.5, uptime: '8h 15m' },
+                        { name: 'Lamps', consumption: 0.8, uptime: '12h 30m' },
+                        { name: 'Router', consumption: 0.5, uptime: '24h 0m' },
+                        { name: 'Speaker', consumption: 0.4, uptime: '3h 45m' }
+                    ],
+                    charts: {
+                        hourly: { labels: ['12am', '3am', '6am', '9am', '12pm', '3pm', '6pm', '9pm'], data: [0.2, 0.1, 0.2, 0.4, 0.6, 1.0, 1.2, 0.5] },
+                        daily: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], data: [4, 5, 3.5, 4.2, 4.8, 5.5, 5] },
+                        monthly: { labels: ['Jan', 'Feb', 'Mar', 'Apr'], data: [120, 130, 125, 140] },
+                        yearly: { labels: ['2022', '2023', '2024'], data: [1500, 1600, 1550] }
+                    }
+                },
+                'Bedroom': {
+                    consumption: 3.1, color: '#10B981',
+                    appliances: [
+                        { name: 'Air Conditioner', consumption: 2.2, uptime: '6h 0m' },
+                        { name: 'Chargers', consumption: 0.4, uptime: '10h 0m' }
+                    ],
+                    charts: { daily: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], data: [3, 2.8, 3.2, 3.5, 3.0, 4.0, 3.8] } }
+                },
+                'Kitchen': {
+                    consumption: 5.8, color: '#F59E0B',
+                    appliances: [
+                        { name: 'Refrigerator', consumption: 2.0, uptime: '24h 0m' },
+                        { name: 'Microwave', consumption: 1.8, uptime: '0h 45m' },
+                        { name: 'Kettle', consumption: 1.0, uptime: '0h 20m' },
+                    ],
+                     charts: { daily: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], data: [5.5, 6.0, 5.2, 5.8, 6.2, 6.5, 6.1] } }
+                },
+                'Office': {
+                    consumption: 2.5, color: '#8B5CF6',
+                     appliances: [
+                        { name: 'PC & Monitor', consumption: 1.8, uptime: '9h 30m' },
+                        { name: 'Printer', consumption: 0.2, uptime: '0h 15m' }
+                    ],
+                     charts: { daily: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], data: [2.2, 2.5, 2.0, 2.8, 3.0, 1.5, 1.8] } }
+                },
+               
+              
+            };
+
+            const mainDashboard = document.getElementById('main-dashboard');
+            const detailView = document.getElementById('detail-view');
+            let detailChartInstance = null;
+            
+            function initMainDashboard() {
+                const roomData = Object.entries(powerData).filter(([key]) => key !== 'Total');
+                const totalConsumptionEl = document.getElementById('totalConsumption');
+                totalConsumptionEl.innerHTML = `<span>${powerData['Total'].consumption.toFixed(1)} kWh</span><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ml-1 text-gray-300 group-hover:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>`;
+                const ctx = document.getElementById('consumptionChart').getContext('2d');
+                new Chart(ctx, { type: 'doughnut', data: { labels: roomData.map(([name]) => name), datasets: [{ data: roomData.map(([, data]) => data.consumption), backgroundColor: roomData.map(([, data]) => data.color), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '80%', plugins: { legend: { display: false }, tooltip: { enabled: true } } } });
+                const roomDetailsContainer = document.getElementById('room-details');
+                roomDetailsContainer.innerHTML = '';
+                roomData.forEach(([name, data]) => {
+                    const card = document.createElement('a');
+                    card.className = 'room-card group';
+                    card.dataset.room = name;
+                    card.innerHTML = `<div class="flex items-center justify-start [width:-webkit-fill-available]"><div class="w-3 h-3 rounded-full mr-3" style="background-color: ${data.color};"></div><p class="text-gray-600 font-medium text-sm">${name}</p></div><div class="flex items-center"><p class="text-gray-800 font-bold text-lg">${data.consumption.toFixed(1)} kWh</p><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2 text-gray-300 group-hover:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg></div>`;
+                    roomDetailsContainer.appendChild(card);
+                });
+            }
+
+            function showDetailView(roomName) {
+                mainDashboard.classList.add('hidden');
+                detailView.classList.remove('hidden');
+                document.getElementById('detail-title').textContent = roomName;
+                
+                const detailList = document.getElementById('detail-list');
+                const listHeading = document.getElementById('list-heading');
+                detailList.innerHTML = '';
+
+                if (roomName === 'Total') {
+                    listHeading.textContent = 'Room Consumption';
+                    Object.entries(powerData).filter(([key]) => key !== 'Total').forEach(([name, data]) => {
+                        const roomEl = document.createElement('div');
+                        roomEl.className = 'flex justify-between items-center bg-white p-4 rounded-lg border';
+                        roomEl.innerHTML = `
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 rounded-full mr-3" style="background-color: ${data.color};"></div>
+                                <p class="font-bold text-gray-700">${name}</p>
+                            </div>
+                            <p class="font-bold text-lg text-indigo-600">${data.consumption.toFixed(1)} kWh</p>`;
+                        detailList.appendChild(roomEl);
+                    });
+                } else {
+                    listHeading.textContent = 'Appliance Usage';
+                    const roomData = powerData[roomName];
+                    if (roomData.appliances && roomData.appliances.length > 0) {
+                        roomData.appliances.forEach(appliance => {
+                            const applianceEl = document.createElement('div');
+                            applianceEl.className = 'flex justify-between items-center bg-white p-4 rounded-lg border';
+                            applianceEl.innerHTML = `<div><p class="font-bold text-gray-700">${appliance.name}</p><p class="text-sm text-gray-500">Uptime: ${appliance.uptime}</p></div><p class="font-bold text-lg text-indigo-600">${appliance.consumption.toFixed(1)} kWh</p>`;
+                            detailList.appendChild(applianceEl);
+                        });
+                    } else {
+                        detailList.innerHTML = `<p class="text-gray-500">No appliance data available.</p>`;
+                    }
+                }
+                
+                updateDetailChart(roomName, 'daily');
+                document.querySelectorAll('.time-range-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.range === 'daily'));
+            }
+
+            function updateDetailChart(roomName, range) {
+                const roomData = powerData[roomName];
+                const chartData = roomData.charts?.[range] || roomData.charts?.['daily'] || { labels: [], data: [] };
+                const ctx = document.getElementById('detailChart').getContext('2d');
+                if (detailChartInstance) {
+                    detailChartInstance.destroy();
+                }
+                detailChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: chartData.labels, datasets: [{ label: 'kWh', data: chartData.data, backgroundColor: '#60A5FA', borderRadius: 6, borderSkipped: false, }] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { position: 'right', beginAtZero: true, grid: { drawBorder: false }, ticks: { padding: 10 } },
+                            x: { grid: { display: false }, ticks: { padding: 10 } }
+                        }
+                    }
+                });
+            }
+
+            document.body.addEventListener('click', e => { if (e.target.closest('[data-room]')) showDetailView(e.target.closest('[data-room]').dataset.room); });
+            document.getElementById('back-btn').addEventListener('click', () => { detailView.classList.add('hidden'); mainDashboard.classList.remove('hidden'); if (detailChartInstance) { detailChartInstance.destroy(); detailChartInstance = null; } });
+            document.querySelectorAll('.time-range-btn').forEach(button => { button.addEventListener('click', e => { document.querySelectorAll('.time-range-btn').forEach(btn => btn.classList.remove('active')); e.currentTarget.classList.add('active'); updateDetailChart(document.getElementById('detail-title').textContent, e.currentTarget.dataset.range); }); });
+            initMainDashboard();
+        });
+    </script>
+</body>
+</html>

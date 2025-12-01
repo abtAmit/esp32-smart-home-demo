@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Home Safety Dashboard (Demo)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #111827; padding-bottom: 80px; }
+        .toggle-checkbox:checked { right: 0; border-color: #22c55e; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #22c55e; }
+        .disabled-card { background-color: #e5e7eb; opacity: 0.7; }
+        .disabled-card input[type="number"] { cursor: not-allowed; background-color: #d1d5db; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid #ddd; z-index: 100; }
+        .nav-btn { background: none; border: none; cursor: pointer; font-size: 20px; color: #666; transition: 0.3s; }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="min-h-screen p-4 sm:p-6 lg:p-8">
+        <div class="max-w-7xl mx-auto">
+            <header class="text-center mb-8 md:mb-12">
+                <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900">Smart Home Safety</h1>
+                <p class="mt-2 text-lg text-gray-600">Manage auto-cutoff settings for voltage and current.</p>
+            </header>
+            <main>
+                <div class="bg-white rounded-2xl p-6 shadow-lg mb-8 border border-gray-200">
+                    <h2 class="text-2xl font-semibold text-gray-900 mb-4">Global House Settings</h2>
+                    <p class="text-gray-500 mb-6">These are the master settings for your entire home.</p>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="mx-auto w-full max-w-xs">
+                            <label for="globalVoltage" class="text-base font-medium text-gray-700">Max Voltage (V)</label>
+                            <div class="mt-2 flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                                <input type="number" id="globalVoltage" value="240" class="w-full p-3 bg-gray-50 outline-none border-none">
+                            </div>
+                        </div>
+                        <div class="mx-auto w-full max-w-xs">
+                            <label for="globalCurrent" class="text-base font-medium text-gray-700">Max Current (A)</label>
+                            <div class="mt-2 flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                               <input type="number" id="globalCurrent" value="15" class="w-full p-3 bg-gray-50 outline-none border-none">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 text-center sm:text-right">
+                         <button id="save-global-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-colors duration-300">Save Global Settings</button>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-semibold text-gray-900 mb-6">Room-Specific Overrides</h2>
+                    <div id="room-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <div id="toast" class="fixed bottom-20 right-5 bg-green-600 text-white py-2 px-4 rounded-lg shadow-xl translate-x-[120%] transition-transform duration-300 ease-in-out z-50">
+        Settings saved successfully!
+    </div>
+    <div class="bottom-nav">
+        <button class="nav-btn" onclick="window.location.href='dashboard.html'"> <i class="fa-solid fa-house"></i></button>
+        <button class="nav-btn" onclick="window.location.href='power.html'"> <i class="fa-solid fa-bolt"></i></button>
+        <button class="nav-btn" onclick="window.location.href='graph.html'"><i class="fa-solid fa-chart-column"></i></button>
+        <button class="nav-btn" style="color: #3e67bf"> <i class="fa-solid fa-gear"></i></button>
+    </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const ROOMS_KEY = 'smartHomeRooms';
+        const GLOBAL_ROOM_ID = 222; 
+
+        // --- Get HTML Elements ---
+        const globalVoltageInput = document.getElementById('globalVoltage');
+        const globalCurrentInput = document.getElementById('globalCurrent');
+        const roomGrid = document.getElementById('room-grid');
+
+        // --- DUMMY DATA FOR DEMO ---
+        const MOCK_SETTINGS = {
+            global: { voltage: 240, current: 32 },
+            rooms: [
+                { id: 1, voltage: 230, current: 10, override: true },
+                { id: 2, voltage: 240, current: 16, override: false },
+                { id: 3, voltage: 240, current: 6, override: false },
+                { id: 4, voltage: 240, current: 10, override: true }
+            ]
+        };
+
+        const DEFAULT_ROOM_NAMES = [
+            { id: 1, name: "Living Room" },
+            { id: 2, name: "Kitchen" },
+            { id: 3, name: "Bedroom" },
+            { id: 4, name: "Office" }
+        ];
+
+        // --- MOCKED API Functions ---
+        async function apiGet(endpoint) { 
+            console.log(`[DEMO] Fetching ${endpoint}...`);
+            await new Promise(r => setTimeout(r, 200)); // Simulate network delay
+            if(endpoint === 'getsettings') return MOCK_SETTINGS;
+            return null;
+        }
+        
+        async function apiPost(endpoint, body) { 
+            console.log(`[DEMO] POST to ${endpoint}:`, body);
+            // Simulate success immediately
+            showToast();
+        }
+
+        // --- UI Functions ---
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('translate-x-[120%]');
+            setTimeout(() => { toast.classList.add('translate-x-[120%]'); }, 2000);
+        }
+
+        function toggleRoomState(card, isEnabled) {
+            const voltageInput = card.querySelector('.room-voltage-input');
+            const currentInput = card.querySelector('.room-current-input');
+            card.classList.toggle('disabled-card', !isEnabled);
+            voltageInput.disabled = !isEnabled;
+            currentInput.disabled = !isEnabled;
+            if (!isEnabled) {
+                // If disabled, visually revert to global settings (just for UI logic)
+                voltageInput.value = globalVoltageInput.value;
+                currentInput.value = globalCurrentInput.value;
+            }
+        }
+
+        function renderUI(settings, storedRooms) {
+            // 1. Populate Global Settings
+            globalVoltageInput.value = settings.global.voltage;
+            globalCurrentInput.value = settings.global.current;
+
+            // 2. Populate Room-Specific Cards
+            roomGrid.innerHTML = '';
+            settings.rooms.forEach(roomSetting => {
+                // Find name from storage OR use default list for demo
+                const roomInfo = storedRooms.find(r => r.id == roomSetting.id) || 
+                                 DEFAULT_ROOM_NAMES.find(r => r.id == roomSetting.id) ||
+                                 { name: `Room ${roomSetting.id}` };
+                
+                const card = document.createElement('div');
+                card.id = `room-${roomSetting.id}`;
+                card.className = 'room-card bg-white rounded-2xl p-6 shadow-lg border border-gray-200 transition-opacity duration-300';
+                card.dataset.roomId = roomSetting.id;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <h3 class="text-xl font-bold text-gray-900">${roomInfo.name}</h3>
+                        <div class="relative inline-block w-10 ml-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${roomSetting.override ? 'checked' : ''}/>
+                            <label class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-6">Override global settings</p>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="mx-auto w-full">
+                            <label class="text-sm font-medium text-gray-700">Max Voltage (V)</label>
+                            <div class="mt-2 flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                                <input type="number" class="room-voltage-input w-full p-3 bg-gray-50 outline-none border-none" value="${roomSetting.voltage}">
+                            </div>
+                        </div>
+                        <div class="mx-auto w-full">
+                            <label class="text-sm font-medium text-gray-700">Max Current (A)</label>
+                            <div class="mt-2 flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                                <input type="number" class="room-current-input w-full p-3 bg-gray-50 outline-none border-none" value="${roomSetting.current}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 text-right">
+                        <button class="save-room-btn bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-colors duration-300">Save</button>
+                    </div>`;
+                
+                roomGrid.appendChild(card);
+                toggleRoomState(card, roomSetting.override);
+            });
+        }
+        
+        // --- Event Listeners ---
+        document.getElementById('save-global-btn').addEventListener('click', () => {
+             const payload = {
+                 roomId: GLOBAL_ROOM_ID, 
+                 voltage: parseInt(globalVoltageInput.value) || 0,
+                 current: parseInt(globalCurrentInput.value) || 0
+             };
+             apiPost('setsetting', payload);
+             
+             // Update disabled room cards to reflect new global settings
+             document.querySelectorAll('.room-card.disabled-card').forEach(card => {
+                 card.querySelector('.room-voltage-input').value = payload.voltage;
+                 card.querySelector('.room-current-input').value = payload.current;
+             });
+        });
+
+        roomGrid.addEventListener('change', e => {
+            if (e.target.matches('.toggle-checkbox')) {
+                toggleRoomState(e.target.closest('.room-card'), e.target.checked);
+            }
+        });
+        
+        roomGrid.addEventListener('click', e => {
+            if (e.target.matches('.save-room-btn')) {
+                const card = e.target.closest('.room-card');
+                const payload = {
+                    roomId: parseInt(card.dataset.roomId),
+                    voltage: parseInt(card.querySelector('.room-voltage-input').value) || 0,
+                    current: parseInt(card.querySelector('.room-current-input').value) || 0,
+                    override: card.querySelector('.toggle-checkbox').checked
+                };
+                apiPost('setsetting', payload);
+            }
+        });
+
+        async function initialize() {
+            // Load rooms (simulate fetching from local storage or use default)
+            let storedRooms = JSON.parse(localStorage.getItem(ROOMS_KEY)) || [];
+            if(storedRooms.length === 0) storedRooms = DEFAULT_ROOM_NAMES;
+            
+            // Fetch mock settings
+            const allSettings = await apiGet('getsettings');
+
+            if (allSettings) {
+                renderUI(allSettings, storedRooms);
+            }
+        }
+        
+        initialize();
+    });
+    </script>
+</body>
+</html>
